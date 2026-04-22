@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBR Patient Management</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --purple: #8e44ad;
+            --light: #ecf0f1;
+            --danger: #e74c3c;
+            --success: #27ae60;
+        }
+        body { font-family: sans-serif; background: var(--light); margin: 0; padding: 15px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 500px; margin-left: auto; margin-right: auto; }
+        input, select, button, textarea { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        label { font-size: 14px; font-weight: bold; color: var(--primary); display: block; margin-top: 10px; }
+        textarea { resize: vertical; min-height: 80px; }
+        button { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        button.secondary { background: var(--primary); }
+        button.consult-btn { background: var(--purple); }
+        button.danger { background: var(--danger); padding: 5px 10px; width: auto; font-size: 12px; }
+        button.edit { background: var(--success); padding: 5px 10px; width: auto; font-size: 12px; margin-right: 5px; }
+        .hidden { display: none; }
+        .patient-item { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .tag { font-size: 12px; background: #eee; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+        .controls { margin-top: 10px; display: flex; justify-content: flex-end; }
+        .remark-text { font-size: 13px; color: #666; font-style: italic; margin-top: 5px; display: block; }
+        #customDiagContainer { margin-top: -5px; }
+        .date-info { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+        .date-badge { color: var(--accent); font-weight: bold; font-size: 14px; }
+        .day-counter { font-size: 12px; padding: 3px 8px; border-radius: 20px; font-weight: bold; }
+        .future { background: #dcfce7; color: #166534; }
+        .past { background: #fee2e2; color: #991b1b; }
+        .today { background: #fef9c3; color: #854d0e; border: 1px solid #ca8a04; }
+        
+        /* Search Box Style */
+        .search-container { position: sticky; top: 0; background: white; padding-bottom: 10px; z-index: 10; }
+        #searchBox { border: 2px solid var(--accent); background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%233498db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>'); background-repeat: no-repeat; background-position: 12px center; padding-left: 40px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-section" class="card">
+        <h2>SBR Login</h2>
+        <input type="text" id="user" placeholder="Username">
+        <input type="password" id="pass" placeholder="Password">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div id="menu-section" class="hidden">
+        <div class="card">
+            <h2>Main Menu</h2>
+            <button onclick="openRegister()">Register New Patient</button>
+            <button class="consult-btn" onclick="viewByTask('consult')">Consultation Schedule</button>
+            <button class="secondary" onclick="viewByTask('ct')">CT-Sim Schedule</button>
+            <button class="secondary" onclick="viewByTask('mri')">MRI-Sim Schedule</button>
+            <button class="secondary" onclick="viewByTask('brachy')">MRI Brachytherapy</button>
+            <button style="background:var(--danger)" onclick="location.reload()">Logout</button>
+        </div>
+    </div>
+
+    <div id="register-section" class="card hidden">
+        <h3 id="form-title">Patient Registration</h3>
+        <input type="hidden" id="editIndex">
+        
+        <label>Basic Information</label>
+        <input type="text" id="pID" placeholder="Patient ID">
+        <input type="text" id="pName" placeholder="Patient Name">
+        
+        <div style="display:flex; gap:10px">
+            <input type="number" id="pAge" placeholder="Age">
+            <select id="pSex">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+            </select>
+        </div>
+        
+        <select id="pDiag" onchange="toggleCustomDiag()">
+            <option value="">Select Diagnosis</option>
+            <option>Head</option><option>Head and Neck</option><option>Lung</option>
+            <option>Right Breast</option><option>Left Breast</option><option>Cervical</option>
+            <option>Rectum</option><option>Upper Extremity</option><option>Lower Extremity</option>
+            <option value="Other">Other (Type below)</option>
+        </select>
+        
+        <div id="customDiagContainer" class="hidden">
+            <input type="text" id="pDiagCustom" placeholder="Enter custom diagnosis">
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        
+        <label>Consultation Date</label>
+        <input type="date" id="consultDate">
+
+        <label>CT Sim Date</label>
+        <input type="date" id="ctDate">
+
+        <label>MRI Sim Date</label>
+        <input type="date" id="mriDate">
+
+        <label>MRI Brachy Date</label>
+        <input type="date" id="brachyDate">
+
+        <textarea id="pRemark" placeholder="Remarks/Notes..."></textarea>
+        
+        <button id="saveBtn" onclick="savePatient()">Save Patient</button>
+        <button class="secondary" onclick="showSection('menu-section')">Back</button>
+    </div>
+
+    <div id="view-section" class="card hidden">
+        <div class="search-container">
+            <h3 id="view-title">Schedule</h3>
+            <input type="text" id="searchBox" placeholder="Search by Name or ID..." onkeyup="renderList()">
+        </div>
+        <div id="patient-list"></div>
+        <button class="secondary" onclick="showSection('menu-section')">Back to Menu</button>
+    </div>
+
+    <script>
+        let patients = JSON.parse(localStorage.getItem('sbr_patients')) || [];
+        let currentType = '';
+
+        function login() {
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+            if(user === 'rtt' && pass === '1234') {
+                showSection('menu-section');
+            } else { 
+                alert('Invalid Credentials'); 
+            }
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('div[id$="-section"]').forEach(d => d.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            // Clear search box when switching sections
+            if(id === 'view-section') document.getElementById('searchBox').value = '';
+        }
+
+        function toggleCustomDiag() {
+            const select = document.getElementById('pDiag');
+            const container = document.getElementById('customDiagContainer');
+            if (select.value === "Other") {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+                document.getElementById('pDiagCustom').value = "";
+            }
+        }
+
+        function openRegister() {
+            clearForm();
+            document.getElementById('form-title').innerText = "Patient Registration";
+            document.getElementById('saveBtn').innerText = "Save Patient";
+            showSection('register-section');
+        }
+
+        function clearForm() {
+            document.getElementById('editIndex').value = "";
+            document.getElementById('pID').value = "";
+            document.getElementById('pName').value = "";
+            document.getElementById('pAge').value = "";
+            document.getElementById('pSex').value = "Male";
+            document.getElementById('pDiag').value = "";
+            document.getElementById('pDiagCustom').value = "";
+            document.getElementById('customDiagContainer').classList.add('hidden');
+            document.getElementById('consultDate').value = "";
+            document.getElementById('ctDate').value = "";
+            document.getElementById('mriDate').value = "";
+            document.getElementById('brachyDate').value = "";
+            document.getElementById('pRemark').value = "";
+        }
+
+        function savePatient() {
+            const index = document.getElementById('editIndex').value;
+            const diagSelect = document.getElementById('pDiag').value;
+            const diagCustom = document.getElementById('pDiagCustom').value;
+            const finalDiag = (diagSelect === "Other") ? diagCustom : diagSelect;
+
+            const p = {
+                id: document.getElementById('pID').value,
+                name: document.getElementById('pName').value,
+                age: document.getElementById('pAge').value,
+                sex: document.getElementById('pSex').value,
+                diag: finalDiag,
+                consult: document.getElementById('consultDate').value,
+                ct: document.getElementById('ctDate').value,
+                mri: document.getElementById('mriDate').value,
+                brachy: document.getElementById('brachyDate').value,
+                remark: document.getElementById('pRemark').value
+            };
+
+            if (index === "") {
+                patients.push(p);
+            } else {
+                patients[index] = p;
+            }
+
+            localStorage.setItem('sbr_patients', JSON.stringify(patients));
+            alert(index === "" ? 'Patient Registered!' : 'Patient Updated!');
+            showSection('menu-section');
+        }
+
+        function viewByTask(type) {
+            currentType = type;
+            showSection('view-section');
+            renderList();
+        }
+
+        function getDaysDiff(targetDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(targetDate);
+            target.setHours(0, 0, 0, 0);
+            
+            const diffTime = target - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return { text: "TODAY", class: "today" };
+            if (diffDays > 0) return { text: `In ${diffDays} days`, class: "future" };
+            return { text: `${Math.abs(diffDays)} days ago`, class: "past" };
+        }
+
+        function renderList() {
+            const list = document.getElementById('patient-list');
+            const query = document.getElementById('searchBox').value.toLowerCase();
+            list.innerHTML = '';
+            
+            const titles = {
+                consult: 'Consultation Schedule',
+                ct: 'CT-Sim Schedule', 
+                mri: 'MRI-Sim Schedule', 
+                brachy: 'MRI Brachytherapy'
+            };
+            document.getElementById('view-title').innerText = titles[currentType];
+
+            const sortedPatients = patients
+                .map((p, originalIndex) => ({ ...p, originalIndex }))
+                .filter(p => p[currentType] && p[currentType] !== "")
+                // Filter by search query
+                .filter(p => p.name.toLowerCase().includes(query) || p.id.toLowerCase().includes(query))
+                .sort((a, b) => new Date(a[currentType]) - new Date(b[currentType]));
+
+            sortedPatients.forEach((p) => {
+                const diff = getDaysDiff(p[currentType]);
+                list.innerHTML += `
+                    <div class="patient-item">
+                        <strong>${p.name}</strong> (${p.id}) <br>
+                        <span class="tag">${p.diag}</span> 
+                        <div class="date-info">
+                            <div class="date-badge">Date: ${p[currentType]}</div>
+                            <div class="day-counter ${diff.class}">${diff.text}</div>
+                        </div>
+                        ${p.remark ? `<span class="remark-text">Note: ${p.remark}</span>` : ''}
+                        <div class="controls">
+                            <button class="edit" onclick="editPatient(${p.originalIndex})">Edit</button>
+                            <button class="danger" onclick="deletePatient(${p.originalIndex})">Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if(list.innerHTML === "") {
+                list.innerHTML = `<p style='text-align:center; color:#999;'>${query ? 'No matching results found.' : 'No appointments found.'}</p>`;
+            }
+        }
+
+        function deletePatient(index) {
+            if(confirm("Are you sure you want to delete this patient?")) {
+                patients.splice(index, 1);
+                localStorage.setItem('sbr_patients', JSON.stringify(patients));
+                renderList();
+            }
+        }
+
+        function editPatient(index) {
+            const p = patients[index];
+            showSection('register-section');
+            document.getElementById('form-title').innerText = "Edit Patient";
+            document.getElementById('saveBtn').innerText = "Update Patient";
+            
+            document.getElementById('editIndex').value = index;
+            document.getElementById('pID').value = p.id;
+            document.getElementById('pName').value = p.name;
+            document.getElementById('pAge').value = p.age;
+            document.getElementById('pSex').value = p.sex;
+            
+            const select = document.getElementById('pDiag');
+            const customInput = document.getElementById('pDiagCustom');
+            const customContainer = document.getElementById('customDiagContainer');
+            
+            let isStandard = false;
+            for(let i=0; i < select.options.length; i++) {
+                if(select.options[i].value === p.diag) {
+                    select.value = p.diag;
+                    isStandard = true;
+                    break;
+                }
+            }
+
+            if(!isStandard && p.diag) {
+                select.value = "Other";
+                customContainer.classList.remove('hidden');
+                customInput.value = p.diag;
+            } else {
+                customContainer.classList.add('hidden');
+                customInput.value = "";
+            }
+
+            document.getElementById('consultDate').value = p.consult || "";
+            document.getElementById('ctDate').value = p.ct || "";
+            document.getElementById('mriDate').value = p.mri || "";
+            document.getElementById('brachyDate').value = p.brachy || "";
+            document.getElementById('pRemark').value = p.remark || "";
+        }
+    </script>
+</body>
+</html>
